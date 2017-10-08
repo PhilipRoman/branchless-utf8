@@ -17,6 +17,15 @@ static int count_fail;
         } \
     } while (0)
 
+#define utf8_decode utf8_decode_asm_once
+
+int utf8_decode_asm(const unsigned char **restrict inbufp, size_t inbufsz, unsigned int **restrict outbufp, size_t outbufsz);
+
+unsigned char *utf8_decode_asm_once(const unsigned char *buf, uint32_t *c, int *e) {
+    *e = !utf8_decode_asm(&buf, 4, &c, 4);
+    return (unsigned char *)buf;
+}
+
 int
 main(void)
 {
