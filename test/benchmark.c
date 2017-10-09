@@ -14,6 +14,7 @@
 #define BUFLEN  8 // MB
 
 int utf8_decode_asm(const unsigned char **restrict inbufp, size_t inbufsz, unsigned int **restrict outbufp, size_t outbufsz);
+int utf8_decode_simd(const unsigned char **restrict inbufp, size_t inbufsz, unsigned int **restrict outbufp, size_t outbufsz);
 
 static uint32_t
 pcg32(uint64_t *s)
@@ -81,7 +82,9 @@ main(void)
     unsigned char *buffer = malloc(z);
     unsigned char *end = buffer_fill(buffer, z);
     unsigned int *outbuf = malloc(z * 4);
+    double rate;
 
+#if 1
     /* Benchmark the asm decoder */
     running = 1;
     signal(SIGALRM, alarm_handler);
@@ -101,9 +104,33 @@ main(void)
             n++;
     } while (running);
 
-    double rate = n * (end - buffer) / (double)SECONDS / 1024 / 1024;
+    rate = n * (end - buffer) / (double)SECONDS / 1024 / 1024;
     printf("asm: %f MB/s, %ld errors\n", rate, errors);
+#endif
 
+    /* Benchmark the simd decoder */
+    running = 1;
+    signal(SIGALRM, alarm_handler);
+    alarm(SECONDS);
+    errors = n = 0;
+    do {
+        const unsigned char *p = buffer;
+        long count = 0;
+        while (p < end) {
+            unsigned int *outbufp = outbuf;
+            if (utf8_decode_simd(&p, end - p, &outbufp, z * 4) <= 0) {
+                errors++;
+            }
+            count++;
+        }
+        if (p == end) // reached the end successfully?
+            n++;
+    } while (running);
+
+    rate = n * (end - buffer) / (double)SECONDS / 1024 / 1024;
+    printf("simd: %f MB/s, %ld errors\n", rate, errors);
+
+#if 1
     /* Benchmark the branchless decoder */
     running = 1;
     signal(SIGALRM, alarm_handler);
@@ -148,6 +175,7 @@ main(void)
 
     rate = n * (end - buffer) / (double)SECONDS / 1024 / 1024;
     printf("Hoehrmann:  %f MB/s, %ld errors\n", rate, errors);
+#endif
 
     free(buffer);
 }
