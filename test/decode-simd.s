@@ -1,15 +1,3 @@
-.macro utf8charlen base,index,result, resultbyte
-
-    movb (\base, \index), \resultbyte
-    and $0xf8, \result
-    shl $24, \result
-    not \result
-    lzcnt \result, \result
-    cmp $1, \result
-    adc $0, \result
-
-.endm
-
 .align 16
     # Converts an index of dwords in the range 0-3 to a pshufb index vector that
     # can be used to look up the corresponding dwords in another vector.
@@ -22,39 +10,6 @@
 
     # Now go grab the base value and add that in
     paddd tbl_0123(%rip), \index
-.endm
-
-    # clobbers: %rax, %rcx
-.macro build_shuffle_mask_first charlen, xmmaccum
-    # Build the shuffle mask for this character now. Our mask in r13 will be shifted
-    # right by however many characters we _don't_ have.
-    mov $4, %ecx
-    sub \charlen, %ecx
-    mov %r13, %rax
-    shr %cl, %rax
-    pinsrb $0, %eax, \xmmaccum
-.endm
-
-    # assumes r13 = 0x8080808000010203
-    # clobbers: %rax, %rcx
-.macro build_shuffle_mask charlen, offset, charindex, xmmaccum
-    # Build the shuffle mask for this character now. Our mask in r13 will be shifted
-    # right by however many characters we _don't_ have.
-
-    mov $4, %ecx
-    sub \charlen, %ecx
-    mov %r13, %rax
-    shr %cl, %rax
-
-    # Because this isn't the first character, we need to shift all our values
-    # over by however many bytes were in prior characters.
-    mov \offset, %rcx
-    sub \charlen, %ecx # Back out having advanced the offset previously
-    imul $0x01010101, %ecx, %ecx
-
-    add %ecx, %eax
-
-    pinsrb \charindex, %eax, \xmmaccum
 .endm
 
     # Parameters: RDI - pointer to pointer to input character, RSI - input buffer size (must be padded with at least 3 zeros)
